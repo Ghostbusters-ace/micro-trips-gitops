@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: infra-routes
+  namespace: storage-messaging
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false" # Pour le codespace
+    nginx.ingress.kubernetes.io/rewrite-target: /$2 # Coupe le préfixe avant d'envoyer au conteneur
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /mailhog(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: mailhog
+            port:
+              number: 8025
+      - path: /rabbitmq(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: rabbitmq
+            port:
+              number: 15672
