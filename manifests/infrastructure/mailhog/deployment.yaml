@@ -19,3 +19,6 @@ spec:
         ports:
         - containerPort: 1025 # Port SMTP (pour recevoir les mails du worker)
         - containerPort: 8025 # Port HTTP (pour l'interface Web)
+        env:
+        - name: MH_UI_WEB_PATH
+          value: "mailhog"
