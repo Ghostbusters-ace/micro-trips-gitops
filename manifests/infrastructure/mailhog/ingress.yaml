@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: infra-routes
+  name: mailhog-ingress
   namespace: storage-messaging
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false" # Pour le codespace
@@ -18,10 +18,3 @@ spec:
             name: mailhog
             port:
               number: 8025
-      - path: /rabbitmq(/|$)(.*)
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: rabbitmq
-            port:
-              number: 15672
