@@ -1,0 +1,8 @@
+kubecostTokenName: "kubecost-token" # Le nom du secret qui sera déchiffré par le cluster
+
+# On désactive ces composants car Kube-Prometheus-Stack s'en occupe déjà
+prometheus:
+  kube-state-metrics:
+    disabled: true
+  nodeExporter:
+    enabled: false

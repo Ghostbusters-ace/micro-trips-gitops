@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubecost
+
+resources:
+  - namespace.yaml
+  - sealed-secret-kubecost.yaml
+
+helmCharts:
+  - name: cost-analyzer
+    repo: https://kubecost.github.io/cost-analyzer/
+    version: 2.3.2
+    releaseName: kubecost
+    namespace: kubecost
+    valuesFile: values-kubecost.yaml
