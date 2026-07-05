@@ -1,8 +1,18 @@
 deploymentMode: SingleBinary
+
 loki:
   commonConfig:
     replication_factor: 1
   storage:
     type: filesystem
+
 singleBinary:
   replicas: 1
+
+# On désactive explicitement les composants distribués
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
