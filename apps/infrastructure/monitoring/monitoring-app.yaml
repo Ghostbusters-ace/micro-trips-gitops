@@ -11,6 +11,8 @@ spec:
     repoURL: https://github.com/Ghostbusters-ace/micro-trips-gitops.git
     targetRevision: main
     path: manifests/infrastructure/monitoring
+    kustomize:
+      buildOptions: "--enable-helm"
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: monitoring

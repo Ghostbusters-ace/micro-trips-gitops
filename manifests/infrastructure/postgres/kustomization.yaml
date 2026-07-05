@@ -3,5 +3,5 @@ kind: Kustomization
 
 resources:
   - external-secret.yaml
+  - statefulset.yaml
   - service.yaml
-  - ingress.yaml
