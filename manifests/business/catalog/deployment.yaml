@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: catalog
-        image: ghcr.io/ghostbusters-ace/catalog:latest
+        image: ghcr.io/ghostbusters-ace/catalog:v1.0.5
         ports:
         - containerPort: 8080
