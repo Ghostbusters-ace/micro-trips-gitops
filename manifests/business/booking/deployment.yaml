@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: booking
-        image: ghcr.io/ghostbusters-ace/booking:latest
+        image: ghcr.io/ghostbusters-ace/booking:1788c069944d575ad932bbcb9f7ce4c4b8517fca
         ports:
         - containerPort: 8081
