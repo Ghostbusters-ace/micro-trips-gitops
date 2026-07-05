@@ -48,3 +48,23 @@ spec:
             limits:
               cpu: "200m"
               memory: "128Mi"
+        env:
+            - name: APP_VERSION
+              value: "canary"
+
+            # --- INFO DE CONNEXION ---
+            - name: DB_HOST
+              value: "postgres.storage-messaging.svc.cluster.local" 
+            - name: DB_PORT
+              value: "5432"
+            
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: catalog-db-secret
+                  key: POSTGRES_PASSWORD

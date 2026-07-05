@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: micro-trips
 
 resources:
+  - external-secret.yaml
   - rollout.yaml
   - service.yaml
   - analysis-template.yaml
