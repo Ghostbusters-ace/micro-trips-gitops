@@ -10,3 +10,33 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8081
+
+---
+# Service pointant vers la version stable (v1)
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-stable
+  namespace: micro-trips
+spec:
+  selector:
+    app: booking
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8081
+
+---
+# Service pointant vers la nouvelle version en test (v2)
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-canary
+  namespace: micro-trips
+spec:
+  selector:
+    app: booking
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8081

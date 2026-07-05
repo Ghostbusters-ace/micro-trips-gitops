@@ -16,3 +16,10 @@ spec:
       containers:
       - name: worker
         image: ghcr.io/ghostbusters-ace/worker:v1.0.5
+        resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

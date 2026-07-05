@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: booking
+  namespace: micro-trips
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: booking
+  strategy:
+    canary:
+      stableService: booking-stable
+      canaryService: booking-canary
+      steps:
+        - setWeight: 20
+        - pause: { duration: 2m }
+        - analysis:
+            templates:
+              - templateName: booking-success-rate
+            args:
+              - name: version-name
+                value: "canary"
+        - setWeight: 40
+        - pause: { duration: 2m }
+        - analysis:
+            templates:
+              - templateName: booking-success-rate
+            args:
+              - name: version-name
+                value: "canary"
+        - setWeight: 80
+        - pause: { duration: 1m }
+        - setWeight: 100
+  template:
+    metadata:
+      labels:
+        app: booking
+    spec:
+      containers:
+        - name: booking
+          image: ghcr.io/ghostbusters-ace/booking:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          env:
+            - name: APP_VERSION
+              value: "canary"

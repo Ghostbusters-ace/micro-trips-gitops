@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: catalog-success-rate
+  namespace: micro-trips
+spec:
+  args:
+    - name: version-name 
+  metrics:
+    - name: success-rate
+      interval: 30s # Vérifie toutes les 30 secondes
+      successCondition: result[0] >= 0.99 # Il faut 99% de succès minimum
+      failureLimit: 3 # Au bout de 3 échecs, on fait un ROLLBACK (retour en arrière) automatique
+      provider:
+        prometheus:
+          # L'URL interne de Prometheus
+          address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          # La fameuse requête PromQL qui cherche nos labels "success" !
+          query: |
+            sum(rate(http_requests_total{status="success", version="{{args.version-name}}"}[2m])) 
+            / 
+            sum(rate(http_requests_total{version="{{args.version-name}}"}[2m]))
