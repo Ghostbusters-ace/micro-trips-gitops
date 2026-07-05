@@ -9,6 +9,7 @@ spec:
   metrics:
     - name: success-rate
       interval: 30s # Vérifie toutes les 30 secondes
+      count: 5
       successCondition: result[0] >= 0.99 # Il faut 99% de succès minimum
       failureLimit: 3 # Au bout de 3 échecs, on fait un ROLLBACK (retour en arrière) automatique
       provider:
