@@ -1,0 +1,13 @@
+grafana:
+  service:
+    type: NodePort
+    nodePort: 30090
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    resources:
+      requests:
+        memory: 512Mi
+      limits:
+        memory: 1Gi
