@@ -15,4 +15,4 @@ spec:
     spec:
       containers:
       - name: worker
-        image: ghcr.io/ghostbusters-ace/worker:latest
+        image: ghcr.io/ghostbusters-ace/worker:1788c069944d575ad932bbcb9f7ce4c4b8517fca
