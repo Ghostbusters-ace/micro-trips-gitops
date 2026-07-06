@@ -27,16 +27,22 @@ if ! command -v brew &> /dev/null; then
     NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     
     # Ajout de brew au PATH pour Linux/Codespaces
-    if [[ "${OS}" == "Linux" ]]; then
+    echo " Activation temporaire de Homebrew pour l'installation..."
+    if [ -d "/home/linuxbrew/.linuxbrew/bin" ]; then
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    elif [ -d "/opt/homebrew/bin" ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
     fi
 else
     echo "🍺 Homebrew est déjà installé."
 fi
 
 # 3. Installation des outils DevOps
+echo "📦 Ajout des dépôts officiels HashiCorp..."
+brew tap hashicorp/tap
+
 echo "📦 Installation de kubectl, kind, terraform et kubeseal..."
-brew install kubectl kind terraform kubeseal
+brew install kubectl kind hashicorp/tap/terraform kubeseal
 
 echo "✅ Toutes les dépendances sont installées avec succès !"
 echo "👉 Vous pouvez maintenant lancer : make all"

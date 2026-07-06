@@ -1,5 +1,7 @@
 # Makefile pour orchestrer l'environnement Local-First (Micro-Trips)
 
+export PATH := /home/linuxbrew/.linuxbrew/bin:/opt/homebrew/bin:$(PATH)
+
 .PHONY: help deps cluster day0-terraform secrets day1-argocd all
 
 help:
