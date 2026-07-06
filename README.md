@@ -124,6 +124,28 @@ L'organisation des fichiers utilise la puissance de **Kustomize** pour factorise
 
 ---
 
+## Day-0 Infrastructure : Provisioning Déclaratif via Terraform
+
+Le projet applique une séparation stricte entre le **Day-0** (Provisioning de l'infrastructure de base) et le **Day-1/Day-2** (Gestion du cycle de vie des applications via le GitOps). 
+
+Bien que notre cluster actuel s'exécute sur un environnement local (`kind`), un dossier `terraform/` a été entièrement conçu et structuré. Il sert de **Blueprint (maquette conceptuelle)** pour automatiser l'amorçage d'un cluster d'entreprise :
+
+* **`providers.tf` :** Configure l'authentification sécurisée auprès des API Kubernetes et des registres Helm de manière agnostique.
+* **`variables.tf` :** Centralise le versioning des briques critiques (`argocd_version = "6.7.11"`, `sealed_secrets_version = "2.14.2"`) pour interdire toute dérive de configuration (*Configuration Drift*).
+* **`main.tf` :** Déclare de manière idempotente la création des namespaces système et déploie par orchestration Helm les fondations du cluster (ArgoCD Core et le décodeur Sealed Secrets).
+
+### Cycle d'exécution théorique (Day-0 Automation)
+```bash
+terraform init     # Téléchargement des providers officiels HashiCorp
+terraform validate # Analyse statique et validation de la cohérence syntaxique
+terraform plan     # Génération du différentiel d'état (Dry-Run sécurisé)
+
+```
+
+Une fois ce blueprint appliqué, la fondation ArgoCD est autonome et prend le relais en mode GitOps pour synchroniser le reste du cluster.
+
+---
+
 ## Le Cycle CI/CD & Pipeline GitOps Automatisée
 
 Le projet implémente une boucle de déploiement continu moderne et découplée entre l'intégration du code et le déploiement sur le cluster :
