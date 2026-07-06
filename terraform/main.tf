@@ -76,6 +76,24 @@ locals {
   vault_token = length(local.vault_token_match) > 0 ? local.vault_token_match[0][0] : "root"
 }
 
+resource "helm_release" "vault" {
+  name             = "vault"
+  repository       = "https://helm.releases.hashicorp.com"
+  chart            = "vault"
+  namespace        = "vault"
+  create_namespace = true
+
+  set {
+    name  = "server.dev.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "server.dev.devRootToken"
+    value = local.vault_token 
+  }
+}
+
 resource "kubernetes_secret" "vault_token" {
   metadata {
     name      = "vault-token"
@@ -87,5 +105,8 @@ resource "kubernetes_secret" "vault_token" {
   }
 
   type = "Opaque"
-  depends_on = [helm_release.external_secrets]
+  depends_on = [
+    helm_release.external_secrets,
+    helm_release.vault
+  ]
 }
