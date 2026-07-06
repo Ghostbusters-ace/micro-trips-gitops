@@ -38,18 +38,29 @@ day0-terraform:
 	@echo "✅ Terraform appliqué avec succès."
 
 secrets:
+	@echo "⏳ Attente de l'initialisation de Vault par le Job ArgoCD..."
+	@while ! kubectl get secret vault-prod-keys -n vault > /dev/null 2>&1; do sleep 2; done;
 	@echo "🔐 Injection des secrets dans Vault (Mode Prod)..."
+	
 	@# 1. Récupère le token root généré par le Job ArgoCD
 	$(eval VAULT_TOKEN := $(shell kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4))
 	
-	@# 2. Verifie que le moteur de secrets KV v2 est activé sur le chemin "secret/" (requis en mode prod)
+	@# 2. Verifie que le moteur de secrets KV v2 est activé sur le chemin "secret/"
 	@kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault secrets enable -path=secret kv-v2 > /dev/null 2>&1 || true
 	
-	@# 3. Charege les variables du .env.local et on les pousse dans Vault
+	@# 3. Charge les variables du .env.local et on les pousse dans Vault
+	@echo "🔄 Écriture des secrets dans Vault..."
 	@set -a; source .env.local; set +a; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/rabbitmq rabbitmq="$$RABBITMQ_PASSWORD"; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/postgres password="$$POSTGRES_PASSWORD"
-	@echo "✅ Les secrets ont été injectés avec succès dans le coffre Vault !"
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/postgres POSTGRES_USER="$$POSTGRES_USER" POSTGRES_PASSWORD="$$POSTGRES_PASSWORD"; \
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/rabbitmq RABBITMQ_DEFAULT_USER="$$RABBITMQ_USER" RABBITMQ_DEFAULT_PASS="$$RABBITMQ_PASSWORD"
+	
+	@# 4. Forcer la resynchronisation des ExternalSecrets (silencieusement si absent)
+	@echo "⚡ Notification à External Secrets Operator..."
+	@kubectl annotate externalsecret booking-db-secret -n micro-trips external-secrets.io/refresh="$(shell date +%s)" --overwrite > /dev/null 2>&1 || true
+	@kubectl annotate externalsecret postgres-secret -n storage-messaging external-secrets.io/refresh="$(shell date +%s)" --overwrite > /dev/null 2>&1 || true
+	@kubectl annotate externalsecret rabbitmq-secret -n storage-messaging external-secrets.io/refresh="$(shell date +%s)" --overwrite > /dev/null 2>&1 || true
+	
+	@echo "✅ Les secrets ont été injectés et ESO a été notifié."
 
 day1-argocd:
 	@echo "🔄 Lancement de la boucle GitOps (Day-1)..."
