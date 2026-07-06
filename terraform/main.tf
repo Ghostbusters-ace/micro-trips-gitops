@@ -66,3 +66,26 @@ resource "helm_release" "external_secrets" {
     value = "true"
   }
 }
+
+locals {
+  env_file = file("${path.module}/../.env.local")
+  
+  vault_token_match = regexall("VAULT_TOKEN=([^\r\n]+)", local.env_file)
+  
+  # Si on le trouve on le prend, sinon met un token par defaut
+  vault_token = length(local.vault_token_match) > 0 ? local.vault_token_match[0][0] : "root"
+}
+
+resource "kubernetes_secret" "vault_token" {
+  metadata {
+    name      = "vault-token"
+    namespace = "external-secrets"
+  }
+
+  data = {
+    token = local.vault_token 
+  }
+
+  type = "Opaque"
+  depends_on = [helm_release.external_secrets]
+}
