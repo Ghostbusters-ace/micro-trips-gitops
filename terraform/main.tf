@@ -24,6 +24,11 @@ resource "helm_release" "argocd" {
     name  = "redis.ha.enabled"
     value = "false"
   }
+
+  set {
+    name  = "server.config.kustomize.buildOptions"
+    value = "--enable-helm"
+  }
 }
 
 resource "helm_release" "sealed_secrets" {
