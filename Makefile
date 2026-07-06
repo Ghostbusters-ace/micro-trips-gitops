@@ -38,13 +38,22 @@ day0-terraform:
 	@echo "✅ Terraform appliqué avec succès."
 
 secrets:
-	@echo "🔐 Configuration des Secrets Locaux..."
-	@if [ ! -f .env.local ]; then echo "❌ Erreur : Fichier .env.local manquant. Copiez .env.example vers .env.local."; exit 1; fi
-	@echo "✅ (Simulation) Secrets configurés à partir de .env.local"
+	@echo "🔐 Injection des secrets dans Vault (Mode Prod)..."
+	@# 1. Récupère le token root généré par le Job ArgoCD
+	$(eval VAULT_TOKEN := $(shell kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4))
+	
+	@# 2. Verifie que le moteur de secrets KV v2 est activé sur le chemin "secret/" (requis en mode prod)
+	@kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault secrets enable -path=secret kv-v2 > /dev/null 2>&1 || true
+	
+	@# 3. Charege les variables du .env.local et on les pousse dans Vault
+	@set -a; source .env.local; set +a; \
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/rabbitmq rabbitmq="$$RABBITMQ_PASSWORD"; \
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/postgres password="$$POSTGRES_PASSWORD"
+	@echo "✅ Les secrets ont été injectés avec succès dans le coffre Vault !"
 
 day1-argocd:
 	@echo "🔄 Lancement de la boucle GitOps (Day-1)..."
 	kubectl apply -f bootstrap/
 	@echo "✅ ArgoCD est en charge ! Regardez le cluster se déployer."
 
-all: cluster day0-terraform secrets day1-argocd
+all: cluster day0-terraform day1-argocd secrets
