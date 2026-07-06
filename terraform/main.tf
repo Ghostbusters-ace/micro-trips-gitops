@@ -33,6 +33,7 @@ values = [
         # Pour utiliser kustomize
         cm = {
           "kustomize.buildOptions" = "--enable-helm"
+          "features.structured-merge-diff" = "disable"
         }
         
         # Cette section génère automatiquement la ConfigMap 'argocd-cmd-params-cm'
@@ -67,15 +68,6 @@ resource "helm_release" "external_secrets" {
   }
 }
 
-locals {
-  env_file = file("${path.module}/../.env.local")
-  
-  vault_token_match = regexall("VAULT_TOKEN=([^\r\n]+)", local.env_file)
-  
-  # Si on le trouve on le prend, sinon met un token par defaut
-  vault_token = length(local.vault_token_match) > 0 ? local.vault_token_match[0][0] : "root"
-}
-
 resource "helm_release" "vault" {
   name             = "vault"
   repository       = "https://helm.releases.hashicorp.com"
@@ -83,30 +75,13 @@ resource "helm_release" "vault" {
   namespace        = "vault"
   create_namespace = true
 
-  set {
+set {
     name  = "server.dev.enabled"
+    value = "false"
+  }
+
+set {
+    name  = "server.ui.enabled"
     value = "true"
   }
-
-  set {
-    name  = "server.dev.devRootToken"
-    value = local.vault_token 
-  }
-}
-
-resource "kubernetes_secret" "vault_token" {
-  metadata {
-    name      = "vault-token"
-    namespace = "external-secrets"
-  }
-
-  data = {
-    token = local.vault_token 
-  }
-
-  type = "Opaque"
-  depends_on = [
-    helm_release.external_secrets,
-    helm_release.vault
-  ]
 }
