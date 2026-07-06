@@ -15,3 +15,9 @@ variable "sealed_secrets_version" {
   type        = string
   default     = "2.14.2"  # Version stable
 }
+
+variable "external_secrets_version" {
+  description = "Version spécifique du Chart Helm d'External Secrets Operator"
+  type        = string
+  default     = "2.7.0"
+}
