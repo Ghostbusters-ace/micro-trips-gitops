@@ -26,17 +26,10 @@ resource "helm_release" "argocd" {
   }
 }
 
-# 3. Installation du contrôleur Sealed Secrets (Pour décoder les secrets Git)
-resource "kubernetes_namespace" "sealed_secrets" {
-  metadata {
-    name = "kube-system"
-  }
-}
-
 resource "helm_release" "sealed_secrets" {
   name       = "sealed-secrets"
-  repository = "https://bitnami-labs.github.io/sealed-secrets"
+  repository = "https://bitnami.github.io/sealed-secrets"
   chart      = "sealed-secrets"
-  namespace  = "kube-system"
-  version    = var.sealed_secrets_version
+  version    = "2.14.2"
+  namespace  = "kube-system" #
 }

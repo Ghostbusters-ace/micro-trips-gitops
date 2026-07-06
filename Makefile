@@ -17,9 +17,14 @@ deps:
 	@bash scripts/install-deps.sh
 
 cluster:
-	@echo "📦 Création du cluster Kind..."
-	kind create cluster --name micro-trips
-	kubectl cluster-info --context kind-micro-trips
+	@echo "📦 Vérification du cluster Kind..."
+	@if kind get clusters | grep -q "^micro-trips$$"; then \
+		echo "✅ Le cluster 'micro-trips' existe déjà. On passe à la suite !"; \
+	else \
+		echo "🚀 Création du cluster Kind..."; \
+		kind create cluster --name micro-trips; \
+	fi
+	kubectl cluster-info
 
 day0-terraform:
 	@echo "🏗️  Vérification et Amorçage de l'infrastructure (Day-0)..."
@@ -39,7 +44,7 @@ secrets:
 
 day1-argocd:
 	@echo "🔄 Lancement de la boucle GitOps (Day-1)..."
-	kubectl apply -k bootstrap/
+	kubectl apply -f bootstrap/
 	@echo "✅ ArgoCD est en charge ! Regardez le cluster se déployer."
 
 all: cluster day0-terraform secrets day1-argocd
