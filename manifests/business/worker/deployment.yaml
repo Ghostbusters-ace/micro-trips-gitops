@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: ghcr.io/ghostbusters-ace/worker:v1.0.5
+        image: ghcr.io/ghostbusters-ace/worker:v1.0.8
         resources:
             requests:
               cpu: "50m"
