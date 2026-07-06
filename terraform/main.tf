@@ -25,10 +25,24 @@ resource "helm_release" "argocd" {
     value = "false"
   }
 
-  set {
-    name  = "server.config.kustomize.buildOptions"
-    value = "--enable-helm"
-  }
+values = [
+    yamlencode({
+      configs = {
+        # Config globale
+
+        # Pour utiliser kustomize
+        cm = {
+          "kustomize.buildOptions" = "--enable-helm"
+        }
+        
+        # Cette section génère automatiquement la ConfigMap 'argocd-cmd-params-cm'
+        # Pour codespace
+        params = {
+          "server.insecure" = "true"
+        }
+      }
+    })
+  ]
 }
 
 resource "helm_release" "sealed_secrets" {

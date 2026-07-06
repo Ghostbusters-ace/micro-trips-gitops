@@ -7,7 +7,7 @@ variable "kubeconfig_path" {
 variable "argocd_version" {
   description = "Version spécifique du Chart Helm d'ArgoCD à installer"
   type        = string
-  default     = "6.7.11"  # Version stable
+  default     = "7.7.0"
 }
 
 variable "sealed_secrets_version" {
