@@ -21,3 +21,9 @@ variable "external_secrets_version" {
   type        = string
   default     = "2.7.0"
 }
+
+variable "ingress_nginx_version" {
+  description = "Version spécifique du Chart Helm d'Ingress NGINX"
+  type        = string
+  default     = "4.15.1"
+}
