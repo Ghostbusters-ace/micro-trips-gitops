@@ -56,6 +56,16 @@ spec:
             # --- INFO DE CONNEXION ---
             - name: RABBITMQ_HOST
               value: "rabbitmq.storage-messaging.svc.cluster.local"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_DEFAULT_USER                  
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: RABBITMQ_DEFAULT_PASS
             - name: DB_HOST
               value: "postgres.storage-messaging.svc.cluster.local" 
             - name: DB_PORT

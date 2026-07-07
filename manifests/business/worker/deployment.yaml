@@ -19,6 +19,16 @@ spec:
         env:
         - name: RABBITMQ_HOST
           value: "rabbitmq.storage-messaging.svc.cluster.local"
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: RABBITMQ_DEFAULT_USER             
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-secret
+              key: RABBITMQ_DEFAULT_PASS
         resources:
             requests:
               cpu: "50m"
