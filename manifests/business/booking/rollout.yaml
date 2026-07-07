@@ -54,6 +54,8 @@ spec:
               value: "canary"
 
             # --- INFO DE CONNEXION ---
+            - name: RABBITMQ_HOST
+              value: "rabbitmq.storage-messaging.svc.cluster.local"
             - name: DB_HOST
               value: "postgres.storage-messaging.svc.cluster.local" 
             - name: DB_PORT
