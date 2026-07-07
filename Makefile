@@ -29,42 +29,42 @@ cluster:
 day0-terraform:
 	@echo "🏗️  Vérification et Amorçage de l'infrastructure (Day-0)..."
 	cd terraform && terraform init
-	@echo "🔍 1/3 - Validation syntaxique en cours..."
 	cd terraform && terraform validate
-	@echo "📝 2/3 - Simulation du déploiement (Dry-Run)..."
 	cd terraform && terraform plan -out=tfplan
-	@echo "🚀 3/3 - Tout est au vert ! Application des changements..."
 	cd terraform && terraform apply "tfplan"
 	@echo "✅ Terraform appliqué avec succès."
+	
+	@echo "🧹 Nettoyage d'un ancien Job Vault si existant..."
+	kubectl delete job vault-auto-init -n vault --ignore-not-found
+	
+	@echo "🚀 Lancement du Job d'initialisation de Vault..."
+	kubectl apply -f scripts/k8s/vault-init-job.yaml
 
 secrets:
-	@echo "⏳ Attente de l'initialisation de Vault par le Job ArgoCD..."
-	@while ! kubectl get secret vault-prod-keys -n vault > /dev/null 2>&1; do sleep 2; done;
+	@echo "⏳ Attente de l'initialisation de Vault par le Job..."
+	@kubectl wait --for=condition=complete job/vault-auto-init -n vault --timeout=300s || (echo "❌ Le Job d'initialisation a échoué" && exit 1)
+	
 	@echo "🔐 Injection des secrets dans Vault (Mode Prod)..."
-	
-	@# 1. Récupère le token root généré par le Job ArgoCD
-	$(eval VAULT_TOKEN := $(shell kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4))
-	
-	@# 2. Verifie que le moteur de secrets KV v2 est activé sur le chemin "secret/"
-	@kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault secrets enable -path=secret kv-v2 > /dev/null 2>&1 || true
-	
-	@# 3. Charge les variables du .env.local et on les pousse dans Vault
-	@echo "🔄 Écriture des secrets dans Vault..."
-	@set -a; source .env.local; set +a; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/postgres POSTGRES_USER="$$POSTGRES_USER" POSTGRES_PASSWORD="$$POSTGRES_PASSWORD"; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$(VAULT_TOKEN)" vault kv put secret/rabbitmq RABBITMQ_DEFAULT_USER="$$RABBITMQ_USER" RABBITMQ_DEFAULT_PASS="$$RABBITMQ_PASSWORD"
-	
-	@# 4. Forcer la resynchronisation des ExternalSecrets (silencieusement si absent)
-	@echo "⚡ Notification à External Secrets Operator..."
-	@kubectl annotate externalsecret booking-db-secret -n micro-trips external-secrets.io/refresh="$(shell date +%s)" --overwrite > /dev/null 2>&1 || true
-	@kubectl annotate externalsecret postgres-secret -n storage-messaging external-secrets.io/refresh="$(shell date +%s)" --overwrite > /dev/null 2>&1 || true
-	@kubectl annotate externalsecret rabbitmq-secret -n storage-messaging external-secrets.io/refresh="$(shell date +%s)" --overwrite > /dev/null 2>&1 || true
-	
-	@echo "✅ Les secrets ont été injectés et ESO a été notifié."
+
+	@VAULT_TOKEN=$$(kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d | jq -r '.root_token'); \
+	if [ -z "$$VAULT_TOKEN" ] || [ "$$VAULT_TOKEN" = "null" ]; then echo "❌ Erreur: Impossible de récupérer le token valide"; exit 1; fi; \
+	echo "✅ Token récupéré avec succès !"; \
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$$VAULT_TOKEN" vault secrets enable -path=secret kv-v2 > /dev/null 2>&1 || true; \
+	echo "🔄 Écriture des secrets dans Vault..."; \
+	set -a; source .env.local; set +a; \
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$$VAULT_TOKEN" vault kv put secret/postgres POSTGRES_USER="$$POSTGRES_USER" POSTGRES_PASSWORD="$$POSTGRES_PASSWORD"; \
+	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$$VAULT_TOKEN" vault kv put secret/rabbitmq RABBITMQ_DEFAULT_USER="$$RABBITMQ_USER" RABBITMQ_DEFAULT_PASS="$$RABBITMQ_PASSWORD"
+	@echo "✅ Les secrets ont été injectés."
 
 day1-argocd:
 	@echo "🔄 Lancement de la boucle GitOps (Day-1)..."
 	kubectl apply -f bootstrap/
+	
+	@echo "⚡ Notification à External Secrets Operator (Post-Sync)..."
+	@sleep 10
+	@kubectl annotate externalsecret booking-db-secret -n micro-trips external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true
+	@kubectl annotate externalsecret postgres-secret -n storage-messaging external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true
+	@kubectl annotate externalsecret rabbitmq-secret -n storage-messaging external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true
 	@echo "✅ ArgoCD est en charge ! Regardez le cluster se déployer."
 
-all: cluster day0-terraform day1-argocd secrets
+all: cluster day0-terraform secrets day1-argocd

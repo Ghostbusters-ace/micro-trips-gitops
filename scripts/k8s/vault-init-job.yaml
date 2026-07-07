@@ -1,0 +1,105 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-init-role
+  namespace: vault
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-init-rolebinding
+  namespace: vault
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-init-role
+subjects:
+- kind: ServiceAccount
+  name: vault
+  namespace: vault
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-auto-init
+  namespace: vault
+spec:
+  template:
+    spec:
+      serviceAccountName: vault
+      restartPolicy: OnFailure
+      containers:
+      - name: init-vault
+        image: alpine:3.20
+        env:
+        - name: VAULT_ADDR
+          value: "http://vault.vault.svc.cluster.local:8200"
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Quitter immédiatement si une commande échoue
+            set -e
+
+            echo "🛠️ Installation des dépendances (curl, jq, kubectl, vault)..."
+            apk add --no-cache curl jq
+
+            # Téléchargement de kubectl
+            curl -LO "https://dl.k8s.io/release/v1.32.0/bin/linux/amd64/kubectl"
+            chmod +x kubectl && mv kubectl /usr/local/bin/
+
+            # Téléchargement de Vault CLI
+            curl -LO "https://releases.hashicorp.com/vault/1.17.2/vault_1.17.2_linux_amd64.zip"
+            unzip vault_1.17.2_linux_amd64.zip && mv vault /usr/local/bin/
+            rm vault_1.17.2_linux_amd64.zip
+
+            echo "⏳ 1. Attente que le service Vault soit prêt..."
+            until curl -s "$VAULT_ADDR/v1/sys/health" > /dev/null; do 
+              sleep 2
+            done
+            
+            echo "🔑 2. Initialisation de Vault s'il est vierge..."
+            # On retire temporairement le 'set -e' car status renvoie un code non-zéro si non initialisé
+            set +e
+            VAULT_STATUS=$(vault operator init -status 2>&1)
+            set -e
+
+            if echo "$VAULT_STATUS" | grep -q "Uninitialized"; then
+              echo "Vault non initialisé. Initialisation en cours..."
+              vault operator init -key-shares=1 -key-threshold=1 -format=json > /tmp/keys.json
+              
+              # Sauvegarde sécurisée dans le cluster
+              kubectl create secret generic vault-prod-keys --from-file=keys.json=/tmp/keys.json -n vault --dry-run=client -o yaml | kubectl apply -f -
+            else
+              echo "Vault est déjà initialisé."
+            fi
+            
+            echo "🔓 3. Extraction des clés et Déverrouillage (Unseal)..."
+            # Utilisation de jq pour une extraction 100% fiable
+            KEYS_JSON=$(kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d)
+            UNSEAL_KEY=$(echo "$KEYS_JSON" | jq -r '.unseal_keys_b64[0]')
+            
+            vault operator unseal "$UNSEAL_KEY"
+            
+            echo "⚙️ 4. Configuration de l'authentification native Kubernetes..."
+            ROOT_TOKEN=$(echo "$KEYS_JSON" | jq -r '.root_token')
+            export VAULT_TOKEN="$ROOT_TOKEN"
+            
+            if ! vault auth list 2>/dev/null | grep -q "kubernetes/"; then
+              echo "Activation du point d'accès Kubernetes..."
+              vault auth enable kubernetes
+              
+              vault write auth/kubernetes/config kubernetes_host="https://kubernetes.default.svc.cluster.local:443"
+              
+              echo 'path "secret/data/*" { capabilities = ["read"] } path "secret/metadata/*" { capabilities = ["read"] }' | vault policy write es-policy -
+              
+              vault write auth/kubernetes/role/external-secrets-role \
+                bound_service_account_names=external-secrets \
+                bound_service_account_namespaces=external-secrets \
+                policies=es-policy \
+                ttl=24h
+            fi
+            echo "✅ Vault est maintenant opérationnel et configuré !"
