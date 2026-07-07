@@ -36,6 +36,8 @@ spec:
     metadata:
       labels:
         app: booking
+      annotations:
+        rollout.restartedAt: "2026-07-08"
     spec:
       containers:
         - name: booking

@@ -35,6 +35,8 @@ spec:
     metadata:
       labels:
         app: catalog
+      annotations:
+        rollout.restartedAt: "2026-07-08"
     spec:
       containers:
       - name: catalog
