@@ -57,6 +57,8 @@ spec:
               value: "postgres.storage-messaging.svc.cluster.local" 
             - name: DB_PORT
               value: "5432"
+            - name: DB_NAME
+              value: "microtrips"  
             
             - name: DB_USER
               valueFrom:
