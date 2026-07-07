@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-loadtest-script
+  namespace: micro-trips
+data:
+  loadtest.js: |
+    import http from 'k6/http';
+    import { sleep, check } from 'k6';
+
+    export const options = {
+        vus: 2,           
+        duration: '15m',  // 15 minutes, c'est parfait pour couvrir tes 5 minutes de Rollout
+    };
+
+    export default function () {
+        const url = 'http://booking-canary:8080/api/v1/bookings';
+        
+        const payload = JSON.stringify({
+            TripID: 1,
+            UserEmail: 'test-k6@example.com'
+        });
+
+        const params = {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+
+        const res = http.post(url, payload, params);
+        
+        check(res, {
+            'status est 201 (Created)': (r) => r.status === 201,
+        });
+        
+        // Pause de 2 secondes pour ne pas spammer ta DB
+        sleep(2); 
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k6-traffic-generator
+  namespace: micro-trips
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k6-generator
+  template:
+    metadata:
+      labels:
+        app: k6-generator
+    spec:
+      containers:
+      - name: k6
+        image: grafana/k6:latest
+        command: ["k6", "run", "/scripts/loadtest.js"]
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+      volumes:
+      - name: script-volume
+        configMap:
+          name: k6-loadtest-script

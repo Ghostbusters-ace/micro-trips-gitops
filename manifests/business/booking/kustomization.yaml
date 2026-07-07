@@ -7,3 +7,4 @@ resources:
   - rollout.yaml
   - service.yaml
   - analysis-template.yaml
+  - traffic-generator.yaml

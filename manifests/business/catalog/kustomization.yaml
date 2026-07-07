@@ -8,3 +8,4 @@ resources:
   - service.yaml
   - analysis-template.yaml
   - hpa.yaml
+  - traffic-generator.yaml
