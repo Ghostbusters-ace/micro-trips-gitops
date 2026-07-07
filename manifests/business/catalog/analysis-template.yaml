@@ -15,7 +15,7 @@ spec:
       provider:
         prometheus:
           # L'URL interne de Prometheus
-          address: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+          address: http://kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
           # La fameuse requête PromQL qui cherche nos labels "success" !
           query: |
             sum(rate(http_requests_total{status="success", version="{{args.version-name}}"}[2m])) 
