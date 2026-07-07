@@ -41,20 +41,38 @@ day0-terraform:
 	kubectl apply -f scripts/k8s/vault-init-job.yaml
 
 secrets:
-	@echo "⏳ Attente de l'initialisation de Vault par le Job..."
-	@kubectl wait --for=condition=complete job/vault-auto-init -n vault --timeout=300s || (echo "❌ Le Job d'initialisation a échoué" && exit 1)
-	
-	@echo "🔐 Injection des secrets dans Vault (Mode Prod)..."
-
-	@VAULT_TOKEN=$$(kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d | jq -r '.root_token'); \
-	if [ -z "$$VAULT_TOKEN" ] || [ "$$VAULT_TOKEN" = "null" ]; then echo "❌ Erreur: Impossible de récupérer le token valide"; exit 1; fi; \
-	echo "✅ Token récupéré avec succès !"; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$$VAULT_TOKEN" vault secrets enable -path=secret kv-v2 > /dev/null 2>&1 || true; \
-	echo "🔄 Écriture des secrets dans Vault..."; \
-	set -a; source .env.local; set +a; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$$VAULT_TOKEN" vault kv put secret/postgres POSTGRES_USER="$$POSTGRES_USER" POSTGRES_PASSWORD="$$POSTGRES_PASSWORD"; \
-	kubectl exec -i -n vault vault-0 -- env VAULT_TOKEN="$$VAULT_TOKEN" vault kv put secret/rabbitmq RABBITMQ_DEFAULT_USER="$$RABBITMQ_USER" RABBITMQ_DEFAULT_PASS="$$RABBITMQ_PASSWORD"
-	@echo "✅ Les secrets ont été injectés."
+	@echo "⏳ Attente de l'initialisation de Vault par le Job ArgoCD..."
+	@kubectl wait --for=condition=complete job/vault-auto-init -n vault --timeout=120s > /dev/null 2>&1 || true
+	@echo "🔐 Lancement du script d'injection (Isolation Bash)..."
+	@bash -c '\
+		echo "🔍 Récupération du Token Root..."; \
+		B64=$$(kubectl get secret vault-prod-keys -n vault --template="{{ index .data \"keys.json\" }}"); \
+		if [ -z "$$B64" ]; then echo "❌ Erreur: Le secret vault-prod-keys est introuvable ou vide."; exit 1; fi; \
+		JSON=$$(echo "$$B64" | base64 -d); \
+		TOKEN=$$(echo "$$JSON" | grep -Eo "\"root_token\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | cut -d"\"" -f4 | tr -d "\r\n "); \
+		if [ -z "$$TOKEN" ]; then \
+			echo "❌ Erreur: Impossible d extraire le root_token du JSON."; \
+			echo "Voici le JSON récupéré pour comprendre le problème :"; \
+			echo "$$JSON"; \
+			exit 1; \
+		fi; \
+		echo "🔑 Token extrait avec succès. Activation du moteur KV v2..."; \
+		kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$$TOKEN" vault secrets enable -path=secret kv-v2 > /dev/null 2>&1 || true; \
+		echo "🔄 Lecture de .env.local..."; \
+		DB_USER=$$(grep "^POSTGRES_USER=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
+		DB_PASS=$$(grep "^POSTGRES_PASSWORD=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
+		MQ_USER=$$(grep "^RABBITMQ_USER=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
+		MQ_PASS=$$(grep "^RABBITMQ_PASSWORD=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
+		echo "💾 Injection dans Vault : Postgres..."; \
+		kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$$TOKEN" vault kv put secret/postgres POSTGRES_USER="$$DB_USER" POSTGRES_PASSWORD="$$DB_PASS"; \
+		echo "💾 Injection dans Vault : RabbitMQ..."; \
+		kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$$TOKEN" vault kv put secret/rabbitmq RABBITMQ_DEFAULT_USER="$$MQ_USER" RABBITMQ_DEFAULT_PASS="$$MQ_PASS"; \
+		echo "⚡ Notification à External Secrets Operator..."; \
+		kubectl annotate externalsecret booking-db-secret -n micro-trips external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
+		kubectl annotate externalsecret postgres-secret -n storage-messaging external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
+		kubectl annotate externalsecret rabbitmq-secret -n storage-messaging external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
+		echo "✅ Terminé avec succès !"; \
+	'
 
 day1-argocd:
 	@echo "🔄 Lancement de la boucle GitOps (Day-1)..."

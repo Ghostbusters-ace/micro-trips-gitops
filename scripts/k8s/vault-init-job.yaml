@@ -41,17 +41,14 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
-            # Quitter immédiatement si une commande échoue
             set -e
 
             echo "🛠️ Installation des dépendances (curl, jq, kubectl, vault)..."
             apk add --no-cache curl jq
 
-            # Téléchargement de kubectl
             curl -LO "https://dl.k8s.io/release/v1.32.0/bin/linux/amd64/kubectl"
             chmod +x kubectl && mv kubectl /usr/local/bin/
 
-            # Téléchargement de Vault CLI
             curl -LO "https://releases.hashicorp.com/vault/1.17.2/vault_1.17.2_linux_amd64.zip"
             unzip vault_1.17.2_linux_amd64.zip && mv vault /usr/local/bin/
             rm vault_1.17.2_linux_amd64.zip
@@ -61,24 +58,25 @@ spec:
               sleep 2
             done
             
-            echo "🔑 2. Initialisation de Vault s'il est vierge..."
-            # On retire temporairement le 'set -e' car status renvoie un code non-zéro si non initialisé
+            echo "🔑 2. Vérification du statut d'initialisation..."
             set +e
-            VAULT_STATUS=$(vault operator init -status 2>&1)
+            vault operator init -status > /dev/null 2>&1
+            STATUS_CODE=$?
             set -e
 
-            if echo "$VAULT_STATUS" | grep -q "Uninitialized"; then
-              echo "Vault non initialisé. Initialisation en cours..."
+            # Code 2 = Non initialisé
+            if [ $STATUS_CODE -eq 2 ]; then
+              echo "Vault non initialisé (Code 2). Initialisation en cours..."
               vault operator init -key-shares=1 -key-threshold=1 -format=json > /tmp/keys.json
-              
-              # Sauvegarde sécurisée dans le cluster
               kubectl create secret generic vault-prod-keys --from-file=keys.json=/tmp/keys.json -n vault --dry-run=client -o yaml | kubectl apply -f -
+            elif [ $STATUS_CODE -eq 0 ]; then
+              echo "Vault est déjà initialisé (Code 0)."
             else
-              echo "Vault est déjà initialisé."
+              echo "❌ Erreur inconnue lors de la vérification du statut (Code: $STATUS_CODE)"
+              exit 1
             fi
             
             echo "🔓 3. Extraction des clés et Déverrouillage (Unseal)..."
-            # Utilisation de jq pour une extraction 100% fiable
             KEYS_JSON=$(kubectl get secret vault-prod-keys -n vault -o jsonpath='{.data.keys\.json}' | base64 -d)
             UNSEAL_KEY=$(echo "$KEYS_JSON" | jq -r '.unseal_keys_b64[0]')
             
