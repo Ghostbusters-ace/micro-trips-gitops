@@ -8,6 +8,7 @@ spec:
     - name: version-name 
   metrics:
     - name: success-rate
+      initialDelay: 2m
       interval: 30s # Vérifie toutes les 30 secondes
       count: 10
       successCondition: result[0] >= 0.99 # Il faut 99% de succès minimum

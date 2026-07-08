@@ -57,7 +57,7 @@ spec:
       containers:
       - name: k6
         image: grafana/k6:latest
-        command: ["k6", "run", "/scripts/loadtest.js"]
+        command: ["/bin/sh", "-c", "while true; do k6 run /scripts/loadtest.js; sleep 5; done"]
         volumeMounts:
         - name: script-volume
           mountPath: /scripts
