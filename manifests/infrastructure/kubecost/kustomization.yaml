@@ -4,7 +4,7 @@ namespace: kubecost
 
 resources:
   - namespace.yaml
-  - sealed-secret-kubecost.yaml
+  - external-secret-kubecost.yaml
 
 helmCharts:
   - name: cost-analyzer

@@ -63,14 +63,19 @@ secrets:
 		DB_PASS=$$(grep "^POSTGRES_PASSWORD=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
 		MQ_USER=$$(grep "^RABBITMQ_USER=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
 		MQ_PASS=$$(grep "^RABBITMQ_PASSWORD=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
+		K_TOKEN=$$(grep "^KUBECOST_TOKEN=" .env.local | cut -d "=" -f2 | tr -d "\r\n"); \
 		echo "💾 Injection dans Vault : Postgres..."; \
 		kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$$TOKEN" vault kv put secret/postgres POSTGRES_USER="$$DB_USER" POSTGRES_PASSWORD="$$DB_PASS"; \
 		echo "💾 Injection dans Vault : RabbitMQ..."; \
 		kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$$TOKEN" vault kv put secret/rabbitmq RABBITMQ_DEFAULT_USER="$$MQ_USER" RABBITMQ_DEFAULT_PASS="$$MQ_PASS"; \
+		echo "💾 Injection dans Vault : Kubecost..."; \
+		kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$$TOKEN" vault kv put secret/kubecost token="$$K_TOKEN"; \
 		echo "⚡ Notification à External Secrets Operator..."; \
 		kubectl annotate externalsecret booking-db-secret -n micro-trips external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
+		kubectl annotate externalsecret rabbitmq-secret -n micro-trips external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
 		kubectl annotate externalsecret postgres-secret -n storage-messaging external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
 		kubectl annotate externalsecret rabbitmq-secret -n storage-messaging external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
+		kubectl annotate externalsecret kubecost-token -n kubecost external-secrets.io/refresh="$$(date +%s)" --overwrite > /dev/null 2>&1 || true; \
 		echo "✅ Terminé avec succès !"; \
 	'
 
